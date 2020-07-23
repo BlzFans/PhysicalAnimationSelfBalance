@@ -1,6 +1,6 @@
 # Physical Animation Self Balance System for Game Character without ML
 ## RESULTS
-## **[Watch Showcase Video on Reddit](https://www.reddit.com/user/MrForExample/comments/hwexhp/physical_animation_self_balance_system_for_game/)**
+## **[Watch Showcase Video on Reddit](https://www.reddit.com/r/Unity3D/comments/hwfd9f/i_did_it_physical_animation_self_balance_system/)**
 ![SBS0](/Imgs/SelfBalanceGif_0.gif)
 ![SBS1](/Imgs/SelfBalanceGif_1.gif)
 ![SBS2](/Imgs/SelfBalanceGif_2.gif)
