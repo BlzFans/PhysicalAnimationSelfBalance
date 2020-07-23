@@ -4,9 +4,9 @@
 ![SBS1](/Imgs/SelfBalanceGif_1.gif)
 ![SBS2](/Imgs/SelfBalanceGif_2.gif)
 ![SBS3](/Imgs/SelfBalanceGif_3.gif)
-![SBS4](/Imgs/SelfBalanceGif_4.gif)
-### **[Video on Reddit]()**
-
+![SBS4](/Imgs/SelfBalanceGif_4.gif)  
+## **[Video on Reddit]()**
+---
 ## INTRODUCTION
 We want game character that **physical based and fully interactable** since the day game been invented, imagine a game where you can hit your enemy exactly where you want hit, and enemy will responds naturally just like what you expected in real life, they both not just some prefab animation like in most of today's 3A games where every time you press the same button, the game will play same animation for the character you control and enemy you hit over and over again. 
 
