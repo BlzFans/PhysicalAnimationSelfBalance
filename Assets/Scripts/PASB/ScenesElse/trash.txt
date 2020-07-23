@@ -1,0 +1,226 @@
+        if (moveing_leg_indexes.Count < max_feet_moveing_num && GetMinDuration() >= next_feet_move_interval)
+        {
+            int moveing_leg_index = -1;
+            float max_magnitude = 0f;
+            Vector3 feet_move_direction = Vector3.zero;
+            for (int i = 0; i < legs.Length; i++)
+            {
+                if (!(moveing_leg_indexes.Contains(i) || backing_leg_indexes.Contains(i)))
+                {
+                    feet_move_direction = legs[i].GetNowJointPosition(0) - center_of_all_mass.TransformPoint(legs[i].base_feet_bias);
+                    feet_move_direction = Vector3.ProjectOnPlane(feet_move_direction, Vector3.up);
+                    if (feet_move_direction.magnitude > max_magnitude)
+                    {
+                        max_magnitude = feet_move_direction.magnitude;
+                        moveing_leg_index = i;
+                    }                        
+                }
+            }
+
+            if (feet_move_direction.magnitude > base_feet_radius)
+            {
+                start_feet_bias[moveing_leg_index] = legs[moveing_leg_index].GetNowFeetBias(center_of_all_mass);
+                moveing_leg_indexes.Add(moveing_leg_index);
+            }
+        }
+
+    void SetJointResistance(Rigidbody rg, Quaternion joint_target_rotation, Vector3 joint_target_angular_velocity)
+    {
+        if (Quaternion.Angle(joint_target_rotation, rg.rotation) <= max_angular_resistant_angle)
+        {
+            Vector3 max_target_angular_velocity = CalculateAngularVelocity(rg.rotation, joint_target_rotation);
+            Vector3 max_target_vel_change = max_target_angular_velocity - rg.angularVelocity;
+            Vector3 now_target_vel_change = Vector3.MoveTowards(Vector3.zero, max_target_vel_change, max_angular_resistant_speed);
+            rg.AddTorque(max_target_vel_change * Time.fixedDeltaTime, ForceMode.VelocityChange);
+            Debug.Log(rg.transform.name + " change: " + max_target_vel_change.ToString("F3"));
+        }
+    }
+
+    void SetJointAngularDrag(Rigidbody rg, Quaternion joint_target_rotation, Vector3 joint_target_angular_velocity)
+    {
+        float joint_angle_diff = Quaternion.Angle(joint_target_rotation, rg.rotation);
+        if (joint_angle_diff <= max_joint_darg_angle)
+        {
+            Vector3 vel_diff = joint_target_angular_velocity - rg.angularVelocity;
+            rg.angularDrag = Mathf.Lerp(0f, max_joint_angular_darg, Mathf.InverseLerp(0f, max_joint_angular_speed_diff, vel_diff.magnitude));
+        }        
+    }
+
+    void CalculateBodyAngularVelocity()
+    {
+        foreach (var k in ref_body_dict.Keys.ToList())
+        {
+            // Calculate root angular velocity
+            Transform body = ref_body_dict[k].Item1;
+            Quaternion last_rotation = ref_body_dict[k].Item2;
+            Quaternion delta_rotation = body.rotation * Quaternion.Inverse(last_rotation);
+            delta_rotation.ToAngleAxis(out var angle, out var axis);
+            angle *= Mathf.Deg2Rad;
+            Vector3 angular_velocity = (1.0f / Time.fixedDeltaTime) * angle * axis;
+            ref_body_dict[k] = new Tuple<Transform, Quaternion, Vector3>(body, body.rotation, angular_velocity);             
+        }
+    }
+
+            moveing_leg_index = 0;
+            start_feet_bias = legs[0].GetNowFeetBias(center_of_all_mass);
+            bool have_feet_on_right_side = false;
+            for (int i = 1; i < legs.Length; i++)
+            {
+                Vector3 now_feet_bias = legs[i].GetNowFeetBias(center_of_all_mass);
+                if (now_feet_bias.magnitude > start_feet_bias.magnitude)
+                {
+                    start_feet_bias = now_feet_bias;
+                    moveing_leg_index = i;
+                }
+            }
+            Vector3 feet_move_direction = center_of_all_mass.TransformPoint(start_feet_bias) - center_of_all_mass.TransformPoint(legs[moveing_leg_index].base_feet_bias);
+            feet_move_direction = Vector3.ProjectOnPlane(feet_move_direction, Vector3.up);
+            is_feet_moveing = feet_move_direction.magnitude > base_feet_radius;
+            
+
+        BalanceFeet other_feet = feets[feet_index == 0 ? 1 : 0];
+        Vector3 other_feet_position = Vector3.ProjectOnPlane(other_feet.GetFeetJointPosition(), Vector3.up);
+        
+        if ((GetClosestPointOnFiniteLine(
+            other_feet_position, 
+            Vector3.ProjectOnPlane(start_feet_point, Vector3.up), 
+            Vector3.ProjectOnPlane(target_feet_point, Vector3.up)) - other_feet_position).magnitude < feet_avoid_radius)
+        {
+            Vector3 feet_pos_diff = other_feet_position - start_feet_point;
+            feet_pos_diff = Vector3.ProjectOnPlane(feet_pos_diff, Vector3.up);
+            float tangent_angle = 90f;
+            if (feet_pos_diff.magnitude > feet_avoid_radius)
+            {
+                float tangent_length = Mathf.Sqrt(Mathf.Pow(feet_pos_diff.magnitude, 2f) - Mathf.Pow(feet_avoid_radius, 2f));
+                tangent_angle = LawOfCosines(feet_pos_diff.magnitude, tangent_length, feet_avoid_radius) * Mathf.Rad2Deg;                
+            }
+
+            float forward_sign = Vector3.Dot(center_of_all_mass.forward, feet_pos_diff) < 0? -1f : 1f;
+            float avoid_angle = feet.feet_sign * forward_sign * tangent_angle;
+            //float max_feet_move_length = Mathf.Lerp(feet_avoid_radius, feet_move_direction.magnitude, Mathf.InverseLerp(90f, 0f, tangent_angle));
+            float max_feet_move_length = feet_move_direction.magnitude;
+            feet_move_direction = Quaternion.AngleAxis(avoid_angle, Vector3.up) * feet_pos_diff.normalized * max_feet_move_length;
+
+            Debug.DrawLine(start_feet_point, start_feet_point + feet_move_direction, Color.green);            
+        }
+
+
+
+        // Get the ray origin for detect the obstacle, e.g other leg on the way
+        List<Vector3> ray_origin = new List<Vector3>();
+        Vector3 knee_joint_position = leg.GetNowJointPosition(1);
+        Vector3 knee_to_feet = now_feet_position - knee_joint_position;
+        Vector3 feet_to_toes = feet.toes.position - now_feet_position;
+        int calf_ray_num = Math.Max((int)(knee_to_feet.magnitude / feet_to_toes.magnitude) * obstacle_detect_ray_num, 1);
+        for (int i = 0; i < calf_ray_num; i++)
+            ray_origin.Add(knee_joint_position + knee_to_feet.normalized * knee_to_feet.magnitude * i / calf_ray_num);
+        int feet_ray_num = Math.Max(obstacle_detect_ray_num - calf_ray_num, 2);
+        for (int i = 0; i < feet_ray_num; i++)
+            ray_origin.Add(now_feet_position + feet_to_toes.normalized * feet_to_toes.magnitude * i / (feet_ray_num - 1));
+
+        // Get closest obstacle info       
+        RaycastHit closest_hit = new RaycastHit();
+        closest_hit.distance = Mathf.Infinity;
+        Vector3 detect_direction = Vector3.ProjectOnPlane(now_target_point - now_feet_position, Vector3.up);
+        float now_avoid_length = Mathf.Min(max_obstacle_detect_length, detect_direction.magnitude);
+        foreach (Vector3 origin in ray_origin)
+        {
+            RaycastHit[] hits = Physics.RaycastAll(origin, feet_move_direction, now_avoid_length);
+            foreach (RaycastHit hit in hits)
+            {
+                if (hit.transform.tag == "leg" && !leg.leg_rgs.Contains(hit.rigidbody))
+                {
+                    if (hit.distance < closest_hit.distance)
+                        closest_hit = hit;
+                }
+            }
+        }
+
+        //
+        if (closest_hit.distance != Mathf.Infinity)
+        {
+            int oter_feet_index = GetOtherFeetIndex(feet_index);
+            PhysicalLeg other_leg = legs[oter_feet_index];
+            Vector3 inward_direction = feets[oter_feet_index].GetFeetJointPosition() - feet.GetFeetJointPosition();
+            inward_direction = Vector3.ProjectOnPlane(inward_direction, Vector3.up);
+            
+            float abs_inward_angle = Vector3.Angle(inward_direction, feet_move_direction);
+            if (abs_inward_angle > 90f) abs_inward_angle = 180f - abs_inward_angle;
+            float tangent_angle = Mathf.Abs(90f - abs_inward_angle);
+
+            Vector3 vertical_dir = Quaternion.AngleAxis(feet_angle_avoid_sign * 90f, Vector3.up) * feet_move_direction.normalized;
+            float feet_vertical_move_length = now_feet_move_length.magnitude * Mathf.Tan(tangent_angle * Mathf.Deg2Rad);
+            float errot_correct_move_length = Mathf.Clamp(min_obstacle_detect_length - closest_hit.distance, 0f, min_obstacle_detect_length);
+
+            float detect_scaler = Mathf.InverseLerp(max_obstacle_detect_length, min_obstacle_detect_length, closest_hit.distance);
+            feet_vertical_move = vertical_dir * (feet_vertical_move_length + errot_correct_move_length) * avoid_move_scaler * detect_scaler;
+            feet_vertical_move += Vector3.ProjectOnPlane(now_feet_position - GetClosestPointOnInfiniteLine(now_feet_position, start_feet_point, start_feet_point + feet_move_direction), Vector3.up);
+            if (feet_vertical_move.magnitude > max_vertical_avoid_length) feet_vertical_move = feet_vertical_move.normalized * max_vertical_avoid_length;
+
+            draw_lines.Add(new Tuple<Vector3, Vector3>(now_feet_position, now_feet_position + feet_vertical_move.normalized));
+            lines_colors.Add(Color.yellow);       
+        }
+        else
+        {
+            feet_vertical_move = Vector3.MoveTowards(feet_vertical_move, Vector3.zero, feet_avoid_back_speed * Time.fixedDeltaTime);
+        }
+
+        now_target_point += feet_vertical_move;
+
+        foreach (Vector3 origin in ray_origin)
+        {
+            draw_lines.Add(new Tuple<Vector3, Vector3>(origin, origin + detect_direction.normalized * now_avoid_length));
+            lines_colors.Add(Color.red);
+        } 
+
+
+        if (leg_overlap)
+        {
+            Debug.Log(feet.name + " avoid");
+            Vector3 inward_direction = feets[oter_feet_index].GetFeetJointPosition() - feet.GetFeetJointPosition();
+            inward_direction = Vector3.ProjectOnPlane(inward_direction, Vector3.up);
+            
+            float abs_inward_angle = Vector3.Angle(inward_direction, feet_move_direction);
+            if (abs_inward_angle > 90f) abs_inward_angle = 180f - abs_inward_angle;
+            float tangent_angle = Mathf.Abs(90f - abs_inward_angle);
+
+            float feet_vertical_move_length = now_feet_move_length.magnitude * Mathf.Tan(tangent_angle * Mathf.Deg2Rad);
+
+            feet_vertical_move = vertical_dir * feet_vertical_move_length * avoid_move_scaler;
+            feet_vertical_move += Vector3.ProjectOnPlane(now_feet_position - 
+                                GetClosestPointOnInfiniteLine(now_feet_position, start_feet_point, start_feet_point + feet_move_direction), Vector3.up);
+            if (feet_vertical_move.magnitude > max_vertical_avoid_length) feet_vertical_move = feet_vertical_move.normalized * max_vertical_avoid_length;
+
+            draw_lines.Add(new Tuple<Vector3, Vector3>(now_feet_position, now_feet_position + feet_vertical_move.normalized));
+            lines_colors.Add(Color.green);       
+        }
+
+
+
+
+    public void CalculateCenterOfMass()
+    {
+        Vector3 CoM = Vector3.zero;
+        float c = 0f;
+        foreach (var rg in all_rgs)
+        {
+            CoM += rg.worldCenterOfMass * rg.mass;
+            c += rg.mass;
+        }
+        CoM /= c;
+
+        center_of_all_mass.position = CoM;
+        center_of_all_mass.rotation = Quaternion.LookRotation(Vector3.ProjectOnPlane(CoM_rotator.forward, Vector3.up), Vector3.up);
+        root_plane_linear_velocity = Vector3.ProjectOnPlane(root_rg.velocity, Vector3.up);
+
+        // Debug
+        draw_lines.Add(new Tuple<Vector3, Vector3>(CoM, CoM - Vector3.up * 3f));
+        lines_colors.Add(Color.black);
+    }
+
+        for (int i = 1; i < joints.Count; i++)
+        {
+            Quaternion ik_wrd_rot = Quaternion.LookRotation((GetNowJointPosition(i-1) - root_joint_position).normalized, ik_plane_normal);
+            Quaternion ik_loc_rot = Quaternion.Inverse(joints[i].connectedBody.transform.rotation) * ik_wrd_rot;
+            ik_axis_bias.quaternions.Add(Quaternion.Inverse(ik_loc_rot) * joints[i].transform.localRotation);
+        }
