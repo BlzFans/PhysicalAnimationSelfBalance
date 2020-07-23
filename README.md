@@ -11,4 +11,4 @@
 ## **[Read Research Paper for Details](/Paper.md)**
 ---
 Using Unity 2019.4.3  
-Using character model [Riko](https://assetstore.unity.com/packages/3d/characters/humanoids/fantasy/riko-74357) (You cannot use this model for commercial purpose)
+Using character model [Riko](https://assetstore.unity.com/packages/3d/characters/humanoids/fantasy/riko-74357) (You cannot use this model for commercial purpose unless you buy it)
